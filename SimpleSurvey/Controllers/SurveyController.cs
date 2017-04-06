@@ -7,6 +7,7 @@ using SurveyModels;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -16,6 +17,10 @@ namespace SimpleSurvey.Controllers
 {
     public class SurveyController : Controller
     {
+        // TODO: Update this value with the new ngrok forwarding URL 
+        // each time you restart ngrok
+        private string actionBaseUrl = "YOUR NGROK URL";
+
         [Authorize]
         [HttpPost]
         public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)
@@ -31,31 +36,47 @@ namespace SimpleSurvey.Controllers
             Microsoft.Graph.User sender = await graphClient.Me.Request().GetAsync();
             string senderEmail = sender.Mail;
 
-            // TODO: Send survey, sender, and recipients to Web API
-            // Web API will add survey to database and return a survey ID + 
-            // closing date/time +
-            // array of per-user limited purpose tokens
-            string closingTime = DateTime.UtcNow.AddMinutes((double)Survey.Duration).ToString();
-            string surveyId = "12345";
-            Dictionary<string, string> recipientTokens = new Dictionary<string, string>();
-            foreach (string recip in recipients)
-            {
-                recipientTokens.Add(recip, "faketoken");
-            }
+            var createSurveyResult = await CreateSurveyInService(Survey, senderEmail, recipients);
 
             // Send the survey
-            string[] errors = await SendSurvey(surveyId, Survey, recipientTokens, closingTime, graphClient);
+            string[] errors = await SendSurvey(
+                createSurveyResult.SurveyId.ToString(), 
+                Survey, 
+                createSurveyResult.Participants,
+                createSurveyResult.Expiration.ToString(), 
+                graphClient);
 
             return Json(errors);
         }
 
-        private async Task<string[]> SendSurvey(string surveyId, Survey survey, Dictionary<string,string> toRecipients, string closingTime, GraphServiceClient graphClient)
+        private async Task<CreateSurveyResponse> CreateSurveyInService(Survey survey, string sender, string[] recipients)
+        {
+            CreateSurveyRequest request = new CreateSurveyRequest
+            {
+                Survey = survey,
+                Sender = sender,
+                Recipients = recipients
+            };
+
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://localhost:1266");
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                HttpResponseMessage response = await client.PostAsJsonAsync("api/surveys", request);
+                response.EnsureSuccessStatusCode();
+
+                return await response.Content.ReadAsAsync<CreateSurveyResponse>();
+            }
+        }
+
+        private async Task<string[]> SendSurvey(string surveyId, Survey survey, List<SurveyParticipant> toRecipients, string closingTime, GraphServiceClient graphClient)
         {
             List<string> errorMessages = new List<string>();
 
-            foreach (KeyValuePair<string,string> recipient in toRecipients)
+            foreach (SurveyParticipant recipient in toRecipients)
             {
-                string error = await SendSurvey(surveyId, survey, recipient.Key, recipient.Value, closingTime, graphClient);
+                string error = await SendSurvey(surveyId, survey, recipient, closingTime, graphClient);
                 if (!string.IsNullOrEmpty(error))
                 {
                     errorMessages.Add(error);
@@ -65,7 +86,7 @@ namespace SimpleSurvey.Controllers
             return errorMessages.ToArray();
         }
 
-        private async Task<string> SendSurvey(string surveyId, Survey survey, string recipient, string token, string closingTime, GraphServiceClient graphClient)
+        private async Task<string> SendSurvey(string surveyId, Survey survey, SurveyParticipant recipient, string closingTime, GraphServiceClient graphClient)
         {
             // Build up the card
             Card card = new Card();
@@ -73,7 +94,7 @@ namespace SimpleSurvey.Controllers
             card.Title = survey.Name;
             card.Text = "Survey closes at **" + closingTime + " (UTC)**";
 
-            card.HideOriginalBody = true;
+            card.HideOriginalBody = false;
             card.Sections = new List<Section>();
 
             Section section = new Section();
@@ -108,12 +129,13 @@ namespace SimpleSurvey.Controllers
                 // {
                 //      "UserId": "<id of user>",
                 //      "SurveyId": "<id of the survey being responded to>",
+                //      "LimitedToken": "<limited purpose token of user>",
                 //      "Response": "{{input.value}}"
                 // }
                 new HttpPOST() {
                     Name = "Submit",
-                    Target = "https://...", // TODO: Fix this with the real URL to web API
-                    Body = "{ \"UserId\": \"" + recipient + "\", \"SurveyId\": \"" + surveyId + "\", \"LimitedToken\": \"" + token + "\", \"Response\": \"{{input.value}}\" }",
+                    Target = actionBaseUrl + "/api/responses", 
+                    Body = "{ \"UserId\": \"" + recipient.Email + "\", \"SurveyId\": \"" + surveyId + "\", \"LimitedToken\": \"" + recipient.LimitedToken + "\", \"Response\": \"{{input.value}}\" }",
                     BodyContentType = "application/json"
                 }
             };
@@ -123,7 +145,7 @@ namespace SimpleSurvey.Controllers
 
             Recipient toRecip = new Recipient()
             {
-                EmailAddress = new EmailAddress() { Address = recipient }
+                EmailAddress = new EmailAddress() { Address = recipient.Email }
             };
 
             // Create the message
@@ -161,7 +183,7 @@ namespace SimpleSurvey.Controllers
                 "    </script>" +
                 "  <head>" +
                 "  <body>" +
-                "    Your email client cannot display this survey." +
+                surveyCard.ToJson() +
                 "  </body>" +
                 "</html>";
         }
