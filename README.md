@@ -2,6 +2,8 @@
 
 In this exercise, we'll go step-by-step to implement a survey using Outlook actionable messages. The survey app will allow a user to send a multiple-choice question to users, who can respond right from within Outlook using actions on the message. The app will tally results and send them to an Office 365 group once the survey has closed.
 
+You can access the code of the completed exercise by downloading the `completed-exercise` branch of this repository.
+
 ## Prerequisites
 
 In order to complete this exercise, you'll need the following:
