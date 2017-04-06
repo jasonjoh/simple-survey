@@ -1,0 +1,74 @@
+﻿@* Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.*@
+@{
+    ViewBag.Title = "Home Page";
+}
+
+@section scripts 
+{
+    @if (ViewBag.ShowSurveyForm)
+    {
+        <script src="https://cdn.jsdelivr.net/markdown-it/7.0.0/markdown-it.min.js"></script>
+        @Scripts.Render("~/bundles/surveybuilder")
+    }
+}
+
+@if (ViewBag.ShowSurveyForm)
+{
+    <div id=uiRoot>
+        <div id="uiHeader" style="display: table;">
+            <div class="inputField">
+                <label for="toRecipients">Send to:</label>
+                <br />
+                <input id="toRecipients" class="field" type="text" value="@ViewBag.SenderEmail" />
+            </div>
+        </div>
+        <div id="surveyDesigner">
+            <div id="surveyFields">
+                <div class="inputField">
+                    <label for="surveyName">Poll title:</label>
+                    <br />
+                    <input id="surveyName" class="field" type="text" value="We need your input to prepare the picnic next week" oninput="previewSurvey()" />
+                </div>
+                <div class="inputField">
+                    <label for="questionTitle">Question:</label>
+                    <br />
+                    <input id="questionTitle" class="field" type="text" value="Please select your meal preference" oninput="previewSurvey()" />
+                </div>
+                <div class="inputField">
+                    <label for="surveyTime">Close after:</label>
+                    <br />
+                    <select id="surveyTime" class="field" onchange="previewSurvey()">
+                        <option value="2">2 minutes</option>
+                        <option value="5">5 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                    </select>
+                </div>
+                <label for="choicesContainer">Choices:</label>
+                <div id="choicesContainer" style="margin-top: 4px;"></div>
+            </div>
+            <div id="surveyPreview" style="margin-left: 30px; margin-right: 20px;">
+                <div style="font-size: 16px; font-weight: bold; margin-bottom: 20px;">Here is a read-only preview of your poll, as recipients will see it:</div>
+                <div id="surveyPreviewContainer"></div>
+            </div>
+        </div>
+        <div id="uiFooter">
+            <button id="btnSendSurvey" style="display: inline-block; vertical-align: middle;" onclick="sendSurvey()">Send this poll</button>
+            <div id="progressIndicator" style="display: none; vertical-align: middle;">
+                <img src="~/Images/Loading.gif" style="display: inline-block; vertical-align: middle; width: 20px; height: 20px;" />
+                <div style="display: inline-block; vertical-align: middle;">Sending...</div>
+            </div>
+            <div id="status" style="display: none; vertical-align: middle;">The poll was successfully sent.</div>
+        </div>
+        <div id="errorMessages" style="display: none;">
+        </div>
+    </div>
+}
+else
+{
+    <div class="jumbotron">
+        <h1>Simple Survey</h1>
+        <p class="lead">Create a simple multiple-choice survey and send to users as an <a href="https://dev.outlook.com/actions" target="_blank">actionable message</a>.</p>
+        <p><a href="@Url.Action("SignIn", "Account", null, Request.Url.Scheme)" class="btn btn-primary btn-lg">Sign in to create a survey</a></p>
+    </div>
+}
