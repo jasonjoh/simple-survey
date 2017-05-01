@@ -76,7 +76,7 @@ namespace SimpleSurvey.Controllers
 
             foreach (SurveyParticipant recipient in toRecipients)
             {
-                string error = await SendSurvey(surveyId, survey, recipient, closingTime, graphClient);
+                string error = await SendSurvey(surveyId, survey, recipient.Email, recipient.LimitedToken, closingTime, graphClient);
                 if (!string.IsNullOrEmpty(error))
                 {
                     errorMessages.Add(error);
@@ -86,7 +86,7 @@ namespace SimpleSurvey.Controllers
             return errorMessages.ToArray();
         }
 
-        private async Task<string> SendSurvey(string surveyId, Survey survey, SurveyParticipant recipient, string closingTime, GraphServiceClient graphClient)
+        private async Task<string> SendSurvey(string surveyId, Survey survey, string recipient, string token, string closingTime, GraphServiceClient graphClient)
         {
             // Build up the card
             Card card = new Card();
@@ -135,7 +135,7 @@ namespace SimpleSurvey.Controllers
                 new HttpPOST() {
                     Name = "Submit",
                     Target = actionBaseUrl + "/api/responses", 
-                    Body = "{ \"UserId\": \"" + recipient.Email + "\", \"SurveyId\": \"" + surveyId + "\", \"LimitedToken\": \"" + recipient.LimitedToken + "\", \"Response\": \"{{input.value}}\" }",
+                    Body = "{ \"UserId\": \"" + recipient + "\", \"SurveyId\": \"" + surveyId + "\", \"LimitedToken\": \"" + token + "\", \"Response\": \"{{input.value}}\" }",
                     BodyContentType = "application/json"
                 }
             };
@@ -145,7 +145,7 @@ namespace SimpleSurvey.Controllers
 
             Recipient toRecip = new Recipient()
             {
-                EmailAddress = new EmailAddress() { Address = recipient.Email }
+                EmailAddress = new EmailAddress() { Address = recipient }
             };
 
             // Create the message
