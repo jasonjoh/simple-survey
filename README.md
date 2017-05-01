@@ -23,7 +23,7 @@ Download or clone the repository, then open **SimpleSurvey.sln** in Visual Studi
 
 | Project | Description |
 |---|---|
-| [MessageCard.csproj](MessageCard/MessageCard.csproj) | This is a simple class library to represent the [actionable message JSON format](https://dev.outlook.com/actions/reference). |
+| [MessageCard.csproj](MessageCard/MessageCard.csproj) | This is a simple class library to represent the [actionable message JSON format](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference). |
 | [SimpleSurvey.csproj](SimpleSurvey/SimpleSurvey.csproj) | This is an MVC web app that sends messages via Microsoft Graph with actionable message cards. |
 | [SurveyModels.csproj](SurveyModels/SurveyModels.csproj) | This is a simple class library with model classes that will be shared between the web app and the web API to be added later. |
 
@@ -274,7 +274,7 @@ In this section we'll create models for surveys, participants, and responses. Th
 
 Let's take a look at what this code does. The `PostSurvey` method implements a `POST` method for surveys. A client can `POST` a serialized `CreateSurveyRequest` object to the API. The method will create the survey in the database. It then creates a participant record in the database for each recipient (or reuses an existing record). If this succeeds, it returns the survey ID, expiration date/time, and a list of participants to the caller.
 
-However, this isn't quite complete! There are a couple of places marked with `TODO` comments. The first one is when the code creates a new record in the participant table. The user needs to have a token salt generated. The second one is when building the response. Each participant needs to have a limited-purpose token generated and added to the response. This is to meet the security requirements documented on [dev.outlook.com](https://dev.outlook.com/Actions/security-requirements). The caller can use these limited-purpose tokens in the action URLs in the actionable message.
+However, this isn't quite complete! There are a couple of places marked with `TODO` comments. The first one is when the code creates a new record in the participant table. The user needs to have a token salt generated. The second one is when building the response. Each participant needs to have a limited-purpose token generated and added to the response. This is to meet the security requirements documented in the [Outlook Developer Documentation](https://docs.microsoft.com/en-us/outlook/actionable-messages/security-requirements). The caller can use these limited-purpose tokens in the action URLs in the actionable message.
 
 ### Add a TokenGenerator utility class
 
@@ -843,9 +843,9 @@ You should get a `401 Unauthorized` response. Now let's move on to improving err
 
 For some of our error cases, we're not concerned about providing a friendly message. For example, if the bearer token is invalid, we shouldn't be concerned about giving an unauthorized user a helpful response! However, in some cases a legitimate user may do something wrong, and we should definitely be helpful in those cases. For example, when we tried responding to a survey more than once, we only got a generic message. Let's update the service to explain to the user what exactly went wrong.
 
-In order to return a custom message, we need to include a [CARD-ACTION-STATUS](https://dev.outlook.com/actions/reference#reporting-an-actions-execution-success-or-failure) header in the response.
+In order to return a custom message, we need to include a [CARD-ACTION-STATUS](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference#reporting-an-actions-execution-success-or-failure) header in the response.
 
-1. Add the following function to the `ResponsesController` class to generate a 401 error with a `CARD-ACTION-STATUS` message.
+1. Add the following function to the `ResponsesController` class to generate a 400 error with a `CARD-ACTION-STATUS` message.
 
     ```C#
     private IHttpActionResult GenerateFriendlyResponse(string message)
@@ -883,7 +883,7 @@ Now let's look at improving the user experience when they successfully respond.
 
 #### Return a refresh card
 
-Now that we know how to return custom responses, we could use the same approach to send a message like "Thanks for responding!" to the user. However, that isn't a great solution since they still have the choice dropdown and the submit button on the card. There's nothing to stop the user from trying to respond again. It would be better if we could remove that UI altogether. With [refresh cards](https://dev.outlook.com/actions/reference#refresh-cards), we can!
+Now that we know how to return custom responses, we could use the same approach to send a message like "Thanks for responding!" to the user. However, that isn't a great solution since they still have the choice dropdown and the submit button on the card. There's nothing to stop the user from trying to respond again. It would be better if we could remove that UI altogether. With [refresh cards](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference#refresh-cards), we can!
 
 The idea with refresh cards is that our service can return a whole new JSON card payload, and the client will replace what's there with the new card. This allows us to change the UI to remove the actions they can no longer take, and to provide more information. For example, after the user responds, we could return a snapshot of the current responses. Let's update the service to do just that.
 
@@ -918,7 +918,7 @@ The idea with refresh cards is that our service can return a whole new JSON card
     }
     ```
 
-    This builds a card that utilizes the `facts` field of a [section](https://dev.outlook.com/actions/reference#section-fields). Facts are used to render a list of key/value pairs, which is perfect for a list of responses and counts. It queries the database to get the current counts for each possible response.
+    This builds a card that utilizes the `facts` field of a [section](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference#section-fields). Facts are used to render a list of key/value pairs, which is perfect for a list of responses and counts. It queries the database to get the current counts for each possible response.
 
 1. Open the **ResponsesController.cs** file. Add a method to the `ResponsesController` to generate a `200` response with the card's JSON in the body and the `CARD-UPDATE-IN-BODY` header set to `true`.
 
@@ -950,7 +950,7 @@ Now that we have the survey response feature working, let's look at reporting th
 
 ## Sending the results to an Office 365 Group
 
-Now let's look at what happens when a survey closes. The whole point of doing a survey is to collect data, so there has to be some way for the sender to view the results. We could enhance the web app to allow the user to view their survey results, but that requires the sender to remember to go log in to the site and view the results at the right time. Instead, we'll track the closing time in our web API and send out a message card with the results. We could certainly send this directly to the sender, using the same methods we use in the web app to send the survey. But since we've already covered that, let's look at an alternative: [Connectors for Groups](https://dev.outlook.com/Connectors). We can use this to push a message card directly to a group, so all members of that group can see the results.
+Now let's look at what happens when a survey closes. The whole point of doing a survey is to collect data, so there has to be some way for the sender to view the results. We could enhance the web app to allow the user to view their survey results, but that requires the sender to remember to go log in to the site and view the results at the right time. Instead, we'll track the closing time in our web API and send out a message card with the results. We could certainly send this directly to the sender, using the same methods we use in the web app to send the survey. But since we've already covered that, let's look at an alternative: [Connectors for Groups](https://docs.microsoft.com/en-us/outlook/actionable-messages/actionable-messages-via-connectors). We can use this to push a message card directly to a group, so all members of that group can see the results.
 
 ### Set up a group
 
@@ -1103,4 +1103,4 @@ Let's sum up what the exercises in this lab have covered.
 - We saw how to return custom error responses and refresh cards in response to actions.
 - We saw how to post actionable messages directly to an Office 365 group.
 
-We hope that gives you a taste of what you can accomplish with actionable messages and connectors. To learn more, visit [https://dev.outlook.com/Actions](https://dev.outlook.com/Actions) and [https://dev.outlook.com/Connectors](https://dev.outlook.com/Connectors).
+We hope that gives you a taste of what you can accomplish with actionable messages and connectors. To learn more, visit [https://docs.microsoft.com/en-us/outlook/actionable-messages/](https://docs.microsoft.com/en-us/outlook/actionable-messages/).
