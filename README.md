@@ -2,6 +2,8 @@
 
 In this exercise, we'll go step-by-step to implement a survey using Outlook actionable messages. The survey app will allow a user to send a multiple-choice question to users, who can respond right from within Outlook using actions on the message. The app will tally results and send them to an Office 365 group once the survey has closed.
 
+> **Note:** If you run into unexpected errors while following these steps, see [Troubleshooting](troubleshooting.md).
+
 You can access the code of the completed exercise by downloading the `completed-exercise` branch of this repository.
 
 ## Prerequisites
@@ -67,9 +69,12 @@ The **Submit** action doesn't work yet, and the survey is really just a placehol
 
 In this section, we'll add a Web API to the solution, which will allow the web app to create surveys in a database.
 
+> **Note:** This section uses SQL Server 2012 Express Local DB. If you do not have this already installed, you can download it from the [Microsoft Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=29062). When asked to choose a download, choose **SqlLocalDB.msi**.
+
+
 ### Create the project
 
-1. Add a new project to the solution. Choose **ASP.NET Web Application (.NET Framework)** under **Visual C#**. Name the project `SurveyService` and click **OK**.
+1. Add a new project to the solution. In the **New Project** window, change the **.NET Framework** dropdown to ".NET Framework 4.6.1". Choose **ASP.NET Web Application (.NET Framework)** under **Visual C#**. Name the project `SurveyService` and click **OK**.
 1. In the next dialog, select **Empty**, and check the box under **Add folders and core references for:** for **Web API**. Make sure the **Host in the cloud** checkbox is not checked and click **OK**.
 1. In **Solution Explorer**, right-click the **References** folder under the **SurveyService** project and choose **Add Reference...**. On the left-hand side expand **Projects** and select **Solution**. Check the boxes next to **SurveyModels** and **MessageCard**, then click **OK**.
 1. On the **Tools** menu, choose **NuGet Package Manager**, then **Manage NuGet Packages for Solution...**. Click the **Browse** tab and search for `EntityFramework`. Select **EntityFramework** in the list of packages, then put a check in the box next to the **SurveyService** project. Click **Install**.
@@ -80,7 +85,7 @@ In this section, we'll add a Web API to the solution, which will allow the web a
 1. Open **CreateSurveyRequest.cs** and update the class with the following code.
 
     ```C#
-    class CreateSurveyRequest
+    public class CreateSurveyRequest
     {
         public Survey Survey { get; set; }
         public string Sender { get; set; }
@@ -248,8 +253,6 @@ In this section we'll create models for surveys, participants, and responses. Th
                 response.Expiration = newSurvey.Expiration;
                 response.Participants = new List<SurveyParticipant>();
 
-                var rng = new RNGCryptoServiceProvider();
-
                 foreach (Participant participant in newSurvey.Participants)
                 {
                     response.Participants.Add(new SurveyParticipant
@@ -315,7 +318,13 @@ However, this isn't quite complete! There are a couple of places marked with `TO
         }
     }
     ```
-1. Open the **SurveysController.cs** file and locate the line:
+1. Open the **SurveysController.cs** file and add the following `using` statement:
+
+    ```C#
+    using SurveyService.Tokens;
+    ```
+    
+1. Locate the line:
 
     ```C#
     TokenSalt = "" // TODO: Generate a per-user salt here
@@ -493,100 +502,6 @@ Currently the web app uses a placeholder value for survey ID and user tokens whe
         }
 
         return errorMessages.ToArray();
-    }
-    ```
-
-1. Locate the `SendSurvey` method with the signature `private async Task<string> SendSurvey(string surveyId, Survey survey, string recipient, string token, string closingTime, GraphServiceClient graphClient)` and update it to take a `SurveyParticipant` parameter instead:
-    1. Replace the `string recipient, string token,` parameters with `SurveyParticipant recipient`.
-    1. Replace `recipient` with `recipient.Email` in the function.
-    1. Replace `token` with `recipient.LimitedToken` in the function.
-
-    The updated functdion should look like this:
-
-    ```C#
-    private async Task<string> SendSurvey(string surveyId, Survey survey, SurveyParticipant recipient, string closingTime, GraphServiceClient graphClient)
-    {
-        // Build up the card
-        Card card = new Card();
-        card.ThemeColor = "00B200";
-        card.Title = survey.Name;
-        card.Text = "Survey closes at **" + closingTime + "**";
-
-        card.HideOriginalBody = false;
-        card.Sections = new List<Section>();
-
-        Section section = new Section();
-        section.Title = survey.QuestionTitle;
-        section.Actions = new List<MessageCard.Action>();
-
-        ActionCard actionCard = new ActionCard();
-        actionCard.Name = "Respond";
-        actionCard.Inputs = new List<Input>();
-
-        MultichoiceInput input = new MultichoiceInput();
-        input.Id = "input";
-        input.IsRequired = true;
-        input.Title = "Select an option";
-        input.Choices = new List<Choice>();
-
-        string[] choices = survey.QuestionChoices.Split(';');
-        for (int i = 0; i < choices.Length; i++)
-        {
-            input.Choices.Add(new Choice() { Display = choices[i], Value = (i + 1).ToString() });
-        }
-
-        actionCard.Inputs.Add(input);
-        actionCard.Actions = new List<ExternalAction>()
-        {
-            // This HttpPOST action is defined so the following request is sent to the service:
-            //
-            // POST <service URL>
-            // <Other HTTP headers>
-            // ContentType: application/json
-            //
-            // {
-            //      "UserId": "<id of user>",
-            //      "SurveyId": "<id of the survey being responded to>",
-            //      "Response": "{{input.value}}"
-            // }
-            new HttpPOST() {
-                Name = "Submit",
-                Target = "https://...", // TODO: Fix this with the real URL to web API
-                Body = "{ \"UserId\": \"" + recipient.Email + "\", \"SurveyId\": \"" + surveyId + "\", \"LimitedToken\": \"" + recipient.LimitedToken + "\", \"Response\": \"{{input.value}}\" }",
-                BodyContentType = "application/json"
-            }
-        };
-
-        section.Actions.Add(actionCard);
-        card.Sections.Add(section);
-
-        Recipient toRecip = new Recipient()
-        {
-            EmailAddress = new EmailAddress() { Address = recipient.Email }
-        };
-
-        // Create the message
-        Message actionableMessage = new Message()
-        {
-            Subject = "RESPONSE REQUESTED: " + survey.Name,
-            ToRecipients = new List<Recipient>() { toRecip },
-            Body = new ItemBody()
-            {
-                ContentType = BodyType.Html,
-                Content = LoadSurveyMessageBody(card)
-            }
-        };
-
-        try
-        {
-            await graphClient.Me.SendMail(actionableMessage, true).Request().PostAsync();
-        } 
-        catch (ServiceException graphEx)
-        {
-            return string.Format("Send to {0} failed - {1}: {2}", recipient, graphEx.Error.Code, graphEx.Error.Message);
-        }
-
-        return string.Empty;
     }
     ```
 
@@ -844,7 +759,7 @@ Our `PostResponse` API should only ever except POST requests from the Office 365
 1. Open the **ResponsesController.cs** file and add the following `using` directive at the top of the file.
 
     ```C#
-    using Microsoft.Outlook.ActionableMessages.Authentication;
+    using Microsoft.O365.ActionableMessages.Authentication;
     using System.Net.Http.Headers;
     using System.Threading.Tasks;
     ```
@@ -1005,7 +920,7 @@ The idea with refresh cards is that our service can return a whole new JSON card
 
     This builds a card that utilizes the `facts` field of a [section](https://dev.outlook.com/actions/reference#section-fields). Facts are used to render a list of key/value pairs, which is perfect for a list of responses and counts. It queries the database to get the current counts for each possible response.
 
-1. Add a method to generate a `200` response with the card's JSON in the body and the `CARD-UPDATE-IN-BODY` header set to `true`.
+1. Open the **ResponsesController.cs** file. Add a method to the `ResponsesController` to generate a `200` response with the card's JSON in the body and the `CARD-UPDATE-IN-BODY` header set to `true`.
 
     ```C#
     private IHttpActionResult GenerateRefreshCardResponse(Card refreshCard)
