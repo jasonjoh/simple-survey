@@ -657,6 +657,8 @@ That doesn't do much yet, but it's enough for us to verify that the ngrok proxy 
 
 If everything is working correctly, Visual Studio should break on your breakpoint. If you press **F5** to continue, you should see a message that the action completed successfully in Outlook on the web.
 
+> **Note:** With **SurveyService** set as the startup project, you can set breakpoints in that project. However, your browser will no longer automatically open to the **SimpleSurvey** web app. You can swith the startup projects back and forth, or you can simply manually browse to the web app at http://localhost:1956/.
+
 #### Recording the response
 
 Now let's modify the `PostResponse` method to actually record the response. Replace the existing `PostResponse` with the following.
