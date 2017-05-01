@@ -483,7 +483,7 @@ Currently the web app uses a placeholder value for survey ID and user tokens whe
 1. Locate the `SendSurvey` method with the signature `private async Task<string[]> SendSurvey(string surveyId, Survey survey, Dictionary<string,string toRecipients, string closingTime, GraphServiceClient graphClient)` and update it to take a `List<SurveyParticipant>` parameter instead:
     1. Replace `Dictionary<string,string toRecipients` in the parameter list with `List<SurveyParticipant> toRecipients`.
     1. Change the line `foreach (KeyValuePair<string,string> recipient in toRecipients)` to `foreach (SurveyParticipant recipient in toRecipients)`.
-    1. Change the line `string error = await SendSurvey(surveyId, survey, recipient.Key, recipient.Value, closingTime, graphClient);` to `string error = await SendSurvey(surveyId, survey, recipient, closingTime, graphClient);`
+    1. Change the line `string error = await SendSurvey(surveyId, survey, recipient.Key, recipient.Value, closingTime, graphClient);` to `string error = await SendSurvey(surveyId, survey, recipient.Email, recipient.LimitedToken, closingTime, graphClient);`
 
     The updated function should look like this:
 
