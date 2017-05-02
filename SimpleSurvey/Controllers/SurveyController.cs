@@ -26,7 +26,7 @@ namespace SimpleSurvey.Controllers
         public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)
         {
             // Split the recipient list
-            string[] recipients = ToRecipients.Split(new char[]{';'}, StringSplitOptions.RemoveEmptyEntries);
+            string[] recipients = ToRecipients.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Create a Graph client
             GraphServiceClient graphClient = new GraphServiceClient(
@@ -36,17 +36,24 @@ namespace SimpleSurvey.Controllers
             Microsoft.Graph.User sender = await graphClient.Me.Request().GetAsync();
             string senderEmail = sender.Mail;
 
-            var createSurveyResult = await CreateSurveyInService(Survey, senderEmail, recipients);
+            try
+            {
+                var createSurveyResult = await CreateSurveyInService(Survey, senderEmail, recipients);
 
-            // Send the survey
-            string[] errors = await SendSurvey(
-                createSurveyResult.SurveyId.ToString(), 
-                Survey, 
-                createSurveyResult.Participants,
-                createSurveyResult.Expiration.ToString(), 
-                graphClient);
+                // Send the survey
+                string[] errors = await SendSurvey(
+                    createSurveyResult.SurveyId.ToString(),
+                    Survey,
+                    createSurveyResult.Participants,
+                    createSurveyResult.Expiration.ToString(),
+                    graphClient);
 
-            return Json(errors);
+                return Json(errors);
+            }
+            catch (Exception ex)
+            {
+                return Json(ex.Message);
+            }
         }
 
         private async Task<CreateSurveyResponse> CreateSurveyInService(Survey survey, string sender, string[] recipients)
@@ -60,7 +67,7 @@ namespace SimpleSurvey.Controllers
 
             using (var client = new HttpClient())
             {
-                client.BaseAddress = new Uri("http://localhost:1266");
+                client.BaseAddress = new Uri("http://localhost:1266/");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                 HttpResponseMessage response = await client.PostAsJsonAsync("api/surveys", request);

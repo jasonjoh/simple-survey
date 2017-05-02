@@ -26,6 +26,9 @@ Download or clone the repository, then open **SimpleSurvey.sln** in Visual Studi
 | [MessageCard.csproj](MessageCard/MessageCard.csproj) | This is a simple class library to represent the [actionable message JSON format](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference). |
 | [SimpleSurvey.csproj](SimpleSurvey/SimpleSurvey.csproj) | This is an MVC web app that sends messages via Microsoft Graph with actionable message cards. |
 | [SurveyModels.csproj](SurveyModels/SurveyModels.csproj) | This is a simple class library with model classes that will be shared between the web app and the web API to be added later. |
+| [SurveyService.csproj](SurveyService/SurveyService.csproj) | This is a web API project that creates and stores surveys in a local database. |
+
+> **Note:** The **SurveyService** project uses SQL Server 2012 Express Local DB. If you do not have this already installed, you can download it from the [Microsoft Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=29062). When asked to choose a download, choose **SqlLocalDB.msi**.
 
 Before you try this out, you need to configure an application ID and password. The app uses Azure's [OAuth 2.0 Authorization Code Flow](https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-v2-protocols-oauth-code) to get access tokens for the Microsoft Graph, which requires that you register the app to get an app ID and password.
 
@@ -53,6 +56,8 @@ Before you try this out, you need to configure an application ID and password. T
 
 ### Test the app
 
+Right-click the **Solution 'SimpleSurvey'** node in **Solution Explorer** and choose **Properties**. Expand **Common Properties** and choose **Startup Project**. Select **Multiple startup projects**, then change the **Action** value for **SimpleSurvey** and **SurveyService** to "Start". Click **OK**. This will allow us to set breakpoints in both projects and make it much easier to debug.
+
 Save your changes and press **F5** to build and run the app. A browser should open to the home page which asks you to sign in to create a survey. Sign in with an Office 365 account and grant access to the app. Once you're signed in, you should see a form that allows you to create and send a survey. Fill in the form and add a few choices, then choose **Send this poll**.
 
 ![A screenshot of the web app form](readme-images/send-survey.PNG)
@@ -61,449 +66,13 @@ Log in to Outlook on the web with the same account. You should have a new messag
 
 ![A screenshot of the message card](readme-images/survey.PNG)
 
-The **Submit** action doesn't work yet, and the survey is really just a placeholder that isn't saved anywhere. By the end of this exercise we'll change that.
+The **Submit** action doesn't work yet. By the end of this exercise we'll change that.
 
----
+#### What just happened?
 
-## Adding a Web API
+If everything worked, the **SimpleSurvey** web app sent a request to the **SurveyService** web API to create a survey in its database. The web API returned data to the web app which includes the survey ID and limited purpose tokens for each participant. The web app then includes that information in the action it sends in the actionable message. If you'd like to see this in more detail, set breakpoints on `public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)` in **./SimpleSurvey/Controllers/SurveyController.cs**, and `public IHttpActionResult PostSurvey(CreateSurveyRequest surveyRequest)` in **./SurveyService/Controllers/SurveysController.cs**. Repeat the test above and step through the code.
 
-In this section, we'll add a Web API to the solution, which will allow the web app to create surveys in a database.
-
-> **Note:** This section uses SQL Server 2012 Express Local DB. If you do not have this already installed, you can download it from the [Microsoft Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=29062). When asked to choose a download, choose **SqlLocalDB.msi**.
-
-
-### Create the project
-
-1. Add a new project to the solution. In the **New Project** window, change the **.NET Framework** dropdown to ".NET Framework 4.6.1". Choose **ASP.NET Web Application (.NET Framework)** under **Visual C#**. Name the project `SurveyService` and click **OK**.
-1. In the next dialog, select **Empty**, and check the box under **Add folders and core references for:** for **Web API**. Make sure the **Host in the cloud** checkbox is not checked and click **OK**.
-1. In **Solution Explorer**, right-click the **References** folder under the **SurveyService** project and choose **Add Reference...**. On the left-hand side expand **Projects** and select **Solution**. Check the boxes next to **SurveyModels** and **MessageCard**, then click **OK**.
-1. On the **Tools** menu, choose **NuGet Package Manager**, then **Manage NuGet Packages for Solution...**. Click the **Browse** tab and search for `EntityFramework`. Select **EntityFramework** in the list of packages, then put a check in the box next to the **SurveyService** project. Click **Install**.
-
-### Add the CreateSurveyRequest and CreateSurveyResponse models
-
-1. Right-click the **SurveyModels** project and choose **Add**, then **Class**. Name the class `CreateSurveyRequest`. Repeat these steps to create a `CreateSurveyResponse` class.
-1. Open **CreateSurveyRequest.cs** and update the class with the following code.
-
-    ```C#
-    public class CreateSurveyRequest
-    {
-        public Survey Survey { get; set; }
-        public string Sender { get; set; }
-        public string[] Recipients { get; set; }
-    }
-    ```
-1. Open **CreateSurveyResponse.cs** and update the class with the following code.
-
-    ```C#
-    public class SurveyParticipant
-    {
-        public string Email { get; set; }
-        public string LimitedToken { get; set; }
-    }
-
-    public class CreateSurveyResponse
-    {
-        public string Status { get; set; }
-        public int SurveyId { get; set; }
-        public DateTime Expiration { get; set; }
-        public List<SurveyParticipant> Participants { get; set; }
-    }
-    ```
-1. Build the solution before proceeding in order to generate the models.
-
-### Add the database models
-
-In this section we'll create models for surveys, participants, and responses. These models will be used with the Entity Framework to make it easy to store in a local SQL database.
-
-1. Right-click the **Models** folder in the **SurveyService** project and choose **Add**, then **Class**. Name the class `SimpleSurvey` and click **Add**. Repeat these steps to add a `Particpant` class, a `Response` class, and a `SurveyContext` class.
-1. Open the **SimpleSurvey.cs** file and replace the entire contents of the file with the follwing code.
-
-    ```C#
-    using System;
-    using System.Collections.Generic;
-
-    namespace SurveyService.Models
-    {
-        public class SimpleSurvey
-        {
-            public int SimpleSurveyId { get; set; }
-            public string Sender { get; set; }
-            public string Name { get; set; }
-            public DateTime Expiration { get; set; }
-            public string QuestionTitle { get; set; }
-            public string QuestionChoices { get; set; }
-            public bool ResultsReported { get; set; }
-            public virtual List<Participant> Participants { get; set; }
-            public virtual List<Response> Responses { get; set; }
-        }
-    }
-    ```
-1. Open the **Participant.cs** file and replace the entire contents of the file with the follwing code.
-
-    ```C#
-    using System.Collections.Generic;
-
-    namespace SurveyService.Models
-    {
-        public class Participant
-        {
-            public int ParticipantId { get; set; }
-            public string Email { get; set; }
-            public string TokenSalt { get; set; }
-            public virtual List<SimpleSurvey> Surveys { get; set; }
-            public virtual List<Response> Responses { get; set; }
-        }
-    }
-    ```
-1. Open the **Response.cs** file and replace the entire contents of the file with the follwing code.
-
-    ```C#
-    namespace SurveyService.Models
-    {
-        public class Response
-        {
-            public int ResponseId { get; set; }
-            public virtual SimpleSurvey Survey { get; set; }
-            public virtual Participant Participant { get; set; }
-            public string ParticipantResponse { get; set; }
-        }
-    }
-    ```
-1. Open the **SurveyContext.cs** file and replace the entire contents of the file with the follwing code.
-
-    ```C#
-    using System.Data.Entity;
-
-    namespace SurveyService.Models
-    {
-        public class SurveyContext : DbContext
-        {
-            public DbSet<SimpleSurvey> Surveys { get; set; }
-            public DbSet<Participant> Participants { get; set; }
-            public DbSet<Response> Responses { get; set; }
-        }
-    }
-    ```
-1. The last step to configure our database is to specify where we want the database file created. For this project, we'll tell the Entity Framework to create it in the **App_Data** folder in the **SurveyService** project. Open the **Web.config** file in the **SurveyService** project. Add the following code before the `<appSettings>` node:
-
-    ```xml
-    <connectionStrings>
-      <add name="SurveyContext" connectionString="Data Source=(LocalDb)\v11.0;Initial Catalog=SurveyDatabase;Integrated Security=SSPI;AttachDBFilename=|DataDirectory|\SurveyDatabase.mdf" providerName="System.Data.SqlClient"/>
-    </connectionStrings>
-    ```
-
-### Add the SurveysController
-
-1. Right-click the **Controllers** folder under the **SurveyService** project and choose **Add**, then **Controller**. Choose **Web API 2 Controller - Empty** and click **Add**. Name the controller **SurveysController** and click **Add**.
-1. Open the **SurveysController.cs** file and add the following `using` directives at the top of the file.
-
-    ```C#
-    using SurveyModels;
-    using SurveyService.Models;
-    ```
-1. Add the following method to the `SurveysController` class.
-
-    ```C#
-    public IHttpActionResult PostSurvey(CreateSurveyRequest surveyRequest)
-    {
-        string newSurveyLocation = string.Empty;
-        CreateSurveyResponse response = new CreateSurveyResponse();
-
-        try
-        {
-            using (var db = new SurveyContext())
-            {
-                // Create the survey
-                SimpleSurvey newSurvey = new SimpleSurvey
-                {
-                    Name = surveyRequest.Survey.Name,
-                    Sender = surveyRequest.Sender,
-                    Expiration = DateTime.UtcNow.AddMinutes(surveyRequest.Survey.Duration),
-                    QuestionTitle = surveyRequest.Survey.QuestionTitle,
-                    QuestionChoices = surveyRequest.Survey.QuestionChoices,
-                    ResultsReported = false,
-                    Participants = new List<Participant>()
-                };
-
-                // Create participants
-                foreach (string recipient in surveyRequest.Recipients)
-                {
-                    // Check if recipient is already in database, create if not
-                    var participant = db.Participants.FirstOrDefault(p => p.Email == recipient.ToLower()) ??
-                        new Participant
-                        {
-                            Email = recipient.ToLower(),
-                            TokenSalt = "" // TODO: Generate a per-user salt here
-                        };
-
-                    newSurvey.Participants.Add(participant);
-
-                    // Add participant to database
-                    db.Participants.Add(participant);
-                }
-
-                // Add survey to the database
-                db.Surveys.Add(newSurvey);
-                db.SaveChanges();
-
-                newSurveyLocation = Url.Link("DefaultApi", new { id = newSurvey.SimpleSurveyId });
-
-                response.Status = "Succeeded";
-                response.SurveyId = newSurvey.SimpleSurveyId;
-                response.Expiration = newSurvey.Expiration;
-                response.Participants = new List<SurveyParticipant>();
-
-                foreach (Participant participant in newSurvey.Participants)
-                {
-                    response.Participants.Add(new SurveyParticipant
-                    {
-                        Email = participant.Email,
-                        LimitedToken = "" // TODO: Generate a limited-purpose token here
-                    });
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-
-        return Created(newSurveyLocation, response);
-    }
-    ```
-
-Let's take a look at what this code does. The `PostSurvey` method implements a `POST` method for surveys. A client can `POST` a serialized `CreateSurveyRequest` object to the API. The method will create the survey in the database. It then creates a participant record in the database for each recipient (or reuses an existing record). If this succeeds, it returns the survey ID, expiration date/time, and a list of participants to the caller.
-
-However, this isn't quite complete! There are a couple of places marked with `TODO` comments. The first one is when the code creates a new record in the participant table. The user needs to have a token salt generated. The second one is when building the response. Each participant needs to have a limited-purpose token generated and added to the response. This is to meet the security requirements documented in the [Outlook Developer Documentation](https://docs.microsoft.com/en-us/outlook/actionable-messages/security-requirements). The caller can use these limited-purpose tokens in the action URLs in the actionable message.
-
-### Add a TokenGenerator utility class
-
-1. Right-click the **SurveyService** project and choose **Add**, then **New Folder**. Name the folder `Tokens`.
-1. Right click the **Tokens** folder and choose **Add**, then **Class...**. Name the class `TokenGenerator` and click **Add**.
-1. Replace the entire contents fo the **TokenGenerator.cs** file with the following code.
-
-    ```C#
-    using System;
-    using System.Security.Cryptography;
-
-    namespace SurveyService.Tokens
-    {
-        public static class TokenGenerator
-        {
-            private const int SaltSize = 32;
-            private const int TokenSize = 32;
-            private const int Iterations = 1000;
-
-            public static string GenerateNewTokenSalt()
-            {
-                var rng = new RNGCryptoServiceProvider();
-                byte[] randomBytes = new byte[SaltSize];
-                rng.GetBytes(randomBytes);
-                return Convert.ToBase64String(randomBytes);
-            }
-
-            public static string GenerateLimitedToken(int surveyId, string email, string salt)
-            {
-                byte[] saltBytes = Convert.FromBase64String(salt);
-                var pbkdf2 = new Rfc2898DeriveBytes(string.Format("{0}{1}", surveyId, email), saltBytes, Iterations);
-                byte[] hashBytes = pbkdf2.GetBytes(TokenSize);
-
-                return Convert.ToBase64String(hashBytes);
-            }
-
-            public static bool VerifyLimitedToken(string token, int surveyId, string email, string salt)
-            {
-                return (token == GenerateLimitedToken(surveyId, email, salt));
-            }
-        }
-    }
-    ```
-1. Open the **SurveysController.cs** file and add the following `using` statement:
-
-    ```C#
-    using SurveyService.Tokens;
-    ```
-    
-1. Locate the line:
-
-    ```C#
-    TokenSalt = "" // TODO: Generate a per-user salt here
-    ```
-
-    Replace this line with the following:
-
-    ```C#
-    TokenSalt = TokenGenerator.GenerateNewTokenSalt()
-    ```
-
-2. Locate the line:
-
-    ```C#
-    LimitedToken = "" // TODO: Generate a limited-purpose token here
-    ```
-
-    Replace this line with the following:
-
-    ```C#
-    LimitedToken = TokenGenerator.GenerateLimitedToken(newSurvey.SimpleSurveyId, participant.Email, participant.TokenSalt)
-    ```
-
-### Test creating a survey
-
-Before we go any further, let's test the Web API and verify that it creates the survey and saves it in the database. We'll use [Postman](https://www.getpostman.com/) to send a request to our API, so if you don't have that installed, go ahead and download and install that before proceeding.
-
-1. Save all the changes you've made to the project files so far. Right-click the **SurveyService** project and choose **Set as Startup Project**.
-1. Press **F5** to build and run the project. A browser should open and display a `403.14 Forbidden` error. This is normal. Copy the URL from the browser, which should look like `http://localhost:1266/`. (**Note:** The port number for your project may be different.)
-1. Open Postman. Create a new tab if needed and configure the tab as follows:
-    - Click the **GET** and change to **POST**.
-    - In the text box labeled `Enter request URL` paste the URL you copied from the brower and add `api/surveys`
-    - Click **Body** underneath the URL, then select the **raw** option.
-    - Click **Text** and change to **JSON (application/json)**.
-    - Enter the following in the text area below:
-    
-        ```json
-        {
-          "Survey": {
-            "Name": "Test",
-            "Duration": 5,
-            "QuestionTitle": "What's your favorite color?",
-            "QuestionChoices": "Red;Blue;Green"
-          },
-          "Sender": "adelev@contoso.com",
-          "Recipients": [
-            "benw@contoso.com",
-            "alland@contoso.com"
-          ]
-        }
-        ```
-
-      The Postman window should look like this when you are done:
-
-      ![The Postman request window configured to call the Web API](readme-images/postman-setup.PNG)
-4. Click **Send** to call the API. If everything is working, you should get a response similar to the following:
-
-    ```json
-    {
-      "Status": "Succeeded",
-      "SurveyId": 1,
-      "Expiration": "2017-03-17T19:55:47.2130827Z",
-      "Participants": [
-        {
-          "Email": "benw@contoso.com",
-          "LimitedToken": "Wf/uTh5vOClySZilp1O/s1HpZymeXz1YHfZ+esv2QQU="
-        },
-        {
-          "Email": "alland@contoso.com",
-          "LimitedToken": "LN9VDMD2CuPITjmomehTWXB0RHJ0Z0T5FPNCo1WCBbM="
-        }
-      ]
-    }
-    ```
-
-Now you can verify the entries in the database using Visual Studio.
-
-1. On the **View** menu, select **Server Explorer**.
-1. Expand **Data Connections**, then double-click **SurveyContext**.
-1. Right-click **SurveyContext** and choose **New Query**.
-1. In the query window, enter the following query and click the **Execute** button.
-
-    ```SQL
-    SELECT * FROM SimpleSurveys
-    ```
-1. You should get back one result representing the data you sent with Postman.
-
-### Update web app to call the Web API
-
-Currently the web app uses a placeholder value for survey ID and user tokens when generating message cards. Now that the Web API can create and save surveys in the database, we can update the web app that generates actionable messages to call this API and use the generated values.
-
-1. Use the NuGet Package Manager to install the **Microsoft.AspNet.WebApi.Client** package in the **SimpleSurvey** project.
-1. Expand the **Controllers** folder in the **SimpleSurvey** project, and open the **SurveyController.cs** file.
-1. Add the following `using` directives to the top of the file.
-
-    ```C#
-    using System.Net.Http;
-    ```
-
-1. Add the following method to the `SurveyController` class.
-
-    ```C#
-    private async Task<CreateSurveyResponse> CreateSurveyInService(Survey survey, string sender, string[] recipients)
-    {
-        CreateSurveyRequest request = new CreateSurveyRequest {
-            Survey = survey,
-            Sender = sender,
-            Recipients = recipients
-        };
-
-        using (var client = new HttpClient())
-        {
-            client.BaseAddress = new Uri("http://localhost:1266/");
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            HttpResponseMessage response = await client.PostAsJsonAsync("api/surveys", request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsAsync<CreateSurveyResponse>();
-        }
-    }
-    ```
-1. Replace the `http://localhost:1266/` with the base URL of your web API. (This is the same value you copied from the browser in step 2 in the [Test creating a survey](#test-creating-a-survey) section).
-1. Locate the `SendSurvey` method with the signature `public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)`. Replace that method with the following code.
-
-    ```C#
-    [Authorize]
-    [HttpPost]
-    public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)
-    {
-        // Split the recipient list
-        string[] recipients = ToRecipients.Split(new char[]{';'}, StringSplitOptions.RemoveEmptyEntries);
-
-        // Create a Graph client
-        GraphServiceClient graphClient = new GraphServiceClient(
-            new DelegateAuthenticationProvider(AddAccessToken));
-
-        // Get the sender's email address
-        Microsoft.Graph.User sender = await graphClient.Me.Request().GetAsync();
-        string senderEmail = sender.Mail;
-
-        var createSurveyResult = await CreateSurveyInService(Survey, senderEmail, recipients);
-
-        // Send the survey
-        string[] errors = await SendSurvey(
-            createSurveyResult.SurveyId.ToString(), 
-            Survey, 
-            createSurveyResult.Participants,
-            createSurveyResult.Expiration.ToString(), 
-            graphClient);
-
-        return Json(errors);
-    }
-    ```
-
-1. Locate the `SendSurvey` method with the signature `private async Task<string[]> SendSurvey(string surveyId, Survey survey, Dictionary<string,string toRecipients, string closingTime, GraphServiceClient graphClient)` and update it to take a `List<SurveyParticipant>` parameter instead:
-    1. Replace `Dictionary<string,string toRecipients` in the parameter list with `List<SurveyParticipant> toRecipients`.
-    1. Change the line `foreach (KeyValuePair<string,string> recipient in toRecipients)` to `foreach (SurveyParticipant recipient in toRecipients)`.
-    1. Change the line `string error = await SendSurvey(surveyId, survey, recipient.Key, recipient.Value, closingTime, graphClient);` to `string error = await SendSurvey(surveyId, survey, recipient.Email, recipient.LimitedToken, closingTime, graphClient);`
-
-    The updated function should look like this:
-
-    ```C#
-    private async Task<string[]> SendSurvey(string surveyId, Survey survey, List<SurveyParticipant> toRecipients, string closingTime, GraphServiceClient graphClient)
-    {
-        List<string> errorMessages = new List<string>();
-
-        foreach (SurveyParticipant recipient in toRecipients)
-        {
-            string error = await SendSurvey(surveyId, survey, recipient, closingTime, graphClient);
-            if (!string.IsNullOrEmpty(error))
-            {
-                errorMessages.Add(error);
-            }
-        }
-
-        return errorMessages.ToArray();
-    }
-    ```
+### Modify the card for testing
 
 Now let's make a few minor changes to the message format to make it easier to see our changes.
 
@@ -540,12 +109,9 @@ Now let's make a few minor changes to the message format to make it easier to se
 
 With those changes, we're adding the JSON representation of the card into the message body and not hiding it. That way we can see all the details while we're testing.
 
-### Test the web app
+### Test the modified card
 
-At this point we should be able to use the web app to create and send a survey.
-
-1. Save all the changes you've made to the project files so far. Right-click the **SimpleSurvey** project and choose **Set as Startup Project**.
-1. Press **F5** to build and run the project.
+Press **F5** to build and run the project.
 
 Sign in and send a survey to yourself. You should see the JSON card in the body of the message with the limited purpose token and the survey ID. However, if you try to respond to the survey, you should get a **The action could not be completed** error. That's because our action is still targeting `https://...`. In the next section we'll tackle implementing a target for our action.
 
@@ -644,7 +210,7 @@ That doesn't do much yet, but it's enough for us to verify that the ngrok proxy 
 
 #### Test the response API
 
-1. Save all the changes you've made to the project files so far. Right-click the **SurveyService** project and choose **Set as Startup Project**.
+1. Save all the changes you've made to the project files so far.
 1. Set a breakpoint on the `PostResponse` method on the `ResponsesController` class.
 1. Press **F5** to build and run the project.
 1. Browse to the Simple Survey web app, sign in, and send a survey to yourself.
