@@ -7,6 +7,7 @@ using SurveyModels;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ namespace SimpleSurvey.Controllers
         public async Task<ActionResult> SendSurvey(Survey Survey, string ToRecipients)
         {
             // Split the recipient list
-            string[] recipients = ToRecipients.Split(new char[]{';'}, StringSplitOptions.RemoveEmptyEntries);
+            string[] recipients = ToRecipients.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Create a Graph client
             GraphServiceClient graphClient = new GraphServiceClient(
@@ -31,31 +32,54 @@ namespace SimpleSurvey.Controllers
             Microsoft.Graph.User sender = await graphClient.Me.Request().GetAsync();
             string senderEmail = sender.Mail;
 
-            // TODO: Send survey, sender, and recipients to Web API
-            // Web API will add survey to database and return a survey ID + 
-            // closing date/time +
-            // array of per-user limited purpose tokens
-            string closingTime = DateTime.UtcNow.AddMinutes((double)Survey.Duration).ToString();
-            string surveyId = "12345";
-            Dictionary<string, string> recipientTokens = new Dictionary<string, string>();
-            foreach (string recip in recipients)
+            try
             {
-                recipientTokens.Add(recip, "faketoken");
+                var createSurveyResult = await CreateSurveyInService(Survey, senderEmail, recipients);
+
+                // Send the survey
+                string[] errors = await SendSurvey(
+                    createSurveyResult.SurveyId.ToString(),
+                    Survey,
+                    createSurveyResult.Participants,
+                    createSurveyResult.Expiration.ToString(),
+                    graphClient);
+
+                return Json(errors);
             }
-
-            // Send the survey
-            string[] errors = await SendSurvey(surveyId, Survey, recipientTokens, closingTime, graphClient);
-
-            return Json(errors);
+            catch (Exception ex)
+            {
+                return Json(ex.Message);
+            }
         }
 
-        private async Task<string[]> SendSurvey(string surveyId, Survey survey, Dictionary<string,string> toRecipients, string closingTime, GraphServiceClient graphClient)
+        private async Task<CreateSurveyResponse> CreateSurveyInService(Survey survey, string sender, string[] recipients)
+        {
+            CreateSurveyRequest request = new CreateSurveyRequest
+            {
+                Survey = survey,
+                Sender = sender,
+                Recipients = recipients
+            };
+
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("http://localhost:1266/");
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                HttpResponseMessage response = await client.PostAsJsonAsync("api/surveys", request);
+                response.EnsureSuccessStatusCode();
+
+                return await response.Content.ReadAsAsync<CreateSurveyResponse>();
+            }
+        }
+
+        private async Task<string[]> SendSurvey(string surveyId, Survey survey, List<SurveyParticipant> toRecipients, string closingTime, GraphServiceClient graphClient)
         {
             List<string> errorMessages = new List<string>();
 
-            foreach (KeyValuePair<string,string> recipient in toRecipients)
+            foreach (SurveyParticipant recipient in toRecipients)
             {
-                string error = await SendSurvey(surveyId, survey, recipient.Key, recipient.Value, closingTime, graphClient);
+                string error = await SendSurvey(surveyId, survey, recipient.Email, recipient.LimitedToken, closingTime, graphClient);
                 if (!string.IsNullOrEmpty(error))
                 {
                     errorMessages.Add(error);
