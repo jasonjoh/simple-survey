@@ -52,3 +52,5 @@ obj/
 packages/
 *.userosscache
 *.user
+*.mdf
+*.ldf
