@@ -78,7 +78,7 @@ If everything worked, the **SimpleSurvey** web app sent a request to the **Surve
 
 Now let's make a few minor changes to the message format to make it easier to see our changes.
 
-1. In **SurveyController.cs**, locate the following line:
+1. In **./SimpleSurvey/Controllers/SurveyController.cs**, locate the following line:
 
     ```C#
     card.HideOriginalBody = true;
@@ -323,9 +323,8 @@ Let's fix these issues!
 
 #### Preventing posts from outside sources
 
-Our `PostResponse` API should only ever except POST requests from the Office 365 service. To help our service determine that the POST is legitimate, Office 365 adds a bearer token to each request in the `Authorization` header. So all we need to do is validate it. Microsoft has made it easy for us to do that by providing a NuGet package that will do all the validation for us.
+Our `PostResponse` API should only ever except POST requests from the Office 365 service. To help our service determine that the POST is legitimate, Office 365 adds a bearer token to each request in the `Authorization` header. So all we need to do is validate it. We'll use the **Microsoft.O365.ActionableMessages.Utilities** NuGet package that will do all the validation for us.
 
-1. On the **Tools** menu, choose **NuGet Package Manager**, then **Manage NuGet Packages for Solution...**. Click the **Browse** tab, then enable the **Include prerelease** option. Search for `Microsoft.O365.ActionableMessages.Utilities`. Select **Microsoft.O365.ActionableMessages.Utilities** in the list of packages, then put a check in the box next to the **SurveyService** project. Click **Install**.
 1. Open the **ResponsesController.cs** file and add the following `using` directive at the top of the file.
 
     ```C#
@@ -490,7 +489,7 @@ The idea with refresh cards is that our service can return a whole new JSON card
 
     This builds a card that utilizes the `facts` field of a [section](https://docs.microsoft.com/en-us/outlook/actionable-messages/card-reference#section-fields). Facts are used to render a list of key/value pairs, which is perfect for a list of responses and counts. It queries the database to get the current counts for each possible response.
 
-1. Open the **ResponsesController.cs** file. Add a method to the `ResponsesController` to generate a `200` response with the card's JSON in the body and the `CARD-UPDATE-IN-BODY` header set to `true`.
+1. Open the **ResponsesController.cs** file and add `using MessageCard;` to the top of the file. Add a method to the `ResponsesController` to generate a `200` response with the card's JSON in the body and the `CARD-UPDATE-IN-BODY` header set to `true`.
 
     ```C#
     private IHttpActionResult GenerateRefreshCardResponse(Card refreshCard)
