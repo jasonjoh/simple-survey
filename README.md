@@ -28,7 +28,9 @@ Download or clone the repository, then open **SimpleSurvey.sln** in Visual Studi
 | [SurveyModels.csproj](SurveyModels/SurveyModels.csproj) | This is a simple class library with model classes that will be shared between the web app and the web API to be added later. |
 | [SurveyService.csproj](SurveyService/SurveyService.csproj) | This is a web API project that creates and stores surveys in a local database. |
 
-> **Note:** The **SurveyService** project uses SQL Server 2012 Express Local DB. If you do not have this already installed, you can download it from the [Microsoft Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=29062). When asked to choose a download, choose **SqlLocalDB.msi**.
+> **Note:** The **SurveyService** project uses SQL Server 2016 Express Local DB. If you do not have this already installed, you can download it from the [SQL Server Downloads](https://www.microsoft.com/en-us/sql-server/sql-server-downloads). Choose the **Download Now** button beneath **Express edition**. Run the installer and choose the **Download Media** option. Select the **LocalDB** package when prompted. Double-click the downloaded file to install.
+>
+> Alternatively, if you have access to another SQL instance (either locally or remote), feel free to update the `SurveyContext` connection string in `./SurveyService/Web.config`.
 
 Before you try this out, you need to configure an application ID and password. The app uses Azure's [OAuth 2.0 Authorization Code Flow](https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-v2-protocols-oauth-code) to get access tokens for the Microsoft Graph, which requires that you register the app to get an app ID and password.
 
