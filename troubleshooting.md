@@ -10,13 +10,13 @@ When debugging the project, IIS Express may refuse to start with the following e
 
 To fix this, use Task Manager to locate the process with the process ID reported and shut it down.
 
-## SurveyService requires SQL Server 2012 Express LocalDB
+## SurveyService requires SQL Server 2016 Express LocalDB
 
-Visual Studio may present an error indicating that SQL Server 2012 Express LocalDB is required.
+Visual Studio may present an error indicating that SQL Server 2016 Express LocalDB is required.
 
 ![](readme-images/troubleshooting/local-db.png)
 
-To fix this, visit the [Microsoft Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=29062) and install SqlLocalDB.msi.
+To fix this, visit the [SQL Server Downloads page](https://www.microsoft.com/en-us/sql-server/sql-server-downloads). Choose the **Download Now** button beneath **Express edition**. Run the installer and choose the **Download Media** option. Select the **LocalDB** package when prompted. Double-click the downloaded file to install.
 
 ## Web API doesn't seem to be working
 

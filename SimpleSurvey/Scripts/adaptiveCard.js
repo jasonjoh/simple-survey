@@ -1,8 +1,13 @@
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /*
 Strongly typed events from https://keestalkstech.com/2016/03/strongly-typed-event-handlers-in-typescript-part-1/
 */
@@ -283,12 +288,13 @@ var CardElement = (function () {
 var TextBlock = (function (_super) {
     __extends(TextBlock, _super);
     function TextBlock() {
-        _super.apply(this, arguments);
-        this.textSize = TextSize.Normal;
-        this.textWeight = TextWeight.Normal;
-        this.textColor = TextColor.Default;
-        this.isSubtle = false;
-        this.wrap = true;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.textSize = TextSize.Normal;
+        _this.textWeight = TextWeight.Normal;
+        _this.textColor = TextColor.Default;
+        _this.isSubtle = false;
+        _this.wrap = true;
+        return _this;
     }
     TextBlock.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -388,8 +394,9 @@ var Fact = (function () {
 var FactGroup = (function (_super) {
     __extends(FactGroup, _super);
     function FactGroup() {
-        _super.apply(this, arguments);
-        this._items = [];
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._items = [];
+        return _this;
     }
     Object.defineProperty(FactGroup.prototype, "items", {
         get: function () {
@@ -448,9 +455,10 @@ var FactGroup = (function (_super) {
 var Picture = (function (_super) {
     __extends(Picture, _super);
     function Picture() {
-        _super.apply(this, arguments);
-        this.style = PictureStyle.Normal;
-        this.height = 0;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.style = PictureStyle.Normal;
+        _this.height = 0;
+        return _this;
     }
     Object.defineProperty(Picture.prototype, "useDefaultSizing", {
         get: function () {
@@ -505,9 +513,10 @@ var Picture = (function (_super) {
 var PictureGallery = (function (_super) {
     __extends(PictureGallery, _super);
     function PictureGallery() {
-        _super.apply(this, arguments);
-        this._items = [];
-        this.pictureSize = Size.Medium;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._items = [];
+        _this.pictureSize = Size.Medium;
+        return _this;
     }
     Object.defineProperty(PictureGallery.prototype, "items", {
         get: function () {
@@ -589,7 +598,7 @@ var Action = (function () {
 var ExternalAction = (function (_super) {
     __extends(ExternalAction, _super);
     function ExternalAction() {
-        _super.apply(this, arguments);
+        return _super !== null && _super.apply(this, arguments) || this;
     }
     return ExternalAction;
 }(Action));
@@ -605,8 +614,9 @@ var TargetUri = (function () {
 var OpenUri = (function (_super) {
     __extends(OpenUri, _super);
     function OpenUri() {
-        _super.apply(this, arguments);
-        this._targets = [];
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._targets = [];
+        return _this;
     }
     OpenUri.prototype.addTarget = function () {
         var targetUri = new TargetUri();
@@ -634,7 +644,7 @@ var OpenUri = (function (_super) {
 var HttpPOST = (function (_super) {
     __extends(HttpPOST, _super);
     function HttpPOST() {
-        _super.apply(this, arguments);
+        return _super !== null && _super.apply(this, arguments) || this;
     }
     HttpPOST.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -649,7 +659,7 @@ var HttpPOST = (function (_super) {
 var Input = (function (_super) {
     __extends(Input, _super);
     function Input() {
-        _super.apply(this, arguments);
+        return _super !== null && _super.apply(this, arguments) || this;
     }
     Input.createInput = function (container, typeName) {
         switch (typeName) {
@@ -676,8 +686,9 @@ var Input = (function (_super) {
 var TextInput = (function (_super) {
     __extends(TextInput, _super);
     function TextInput(container) {
-        _super.call(this, container);
-        this.size = Size.Stretch;
+        var _this = _super.call(this, container) || this;
+        _this.size = Size.Stretch;
+        return _this;
     }
     TextInput.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -707,7 +718,7 @@ var Choice = (function () {
 var ToggleInput = (function (_super) {
     __extends(ToggleInput, _super);
     function ToggleInput() {
-        _super.apply(this, arguments);
+        return _super !== null && _super.apply(this, arguments) || this;
     }
     ToggleInput.prototype.render = function () {
         var element = document.createElement("div");
@@ -719,9 +730,10 @@ var ToggleInput = (function (_super) {
 var MultichoiceInput = (function (_super) {
     __extends(MultichoiceInput, _super);
     function MultichoiceInput(container) {
-        _super.call(this, container);
-        this._choices = [];
-        this.size = Size.Medium;
+        var _this = _super.call(this, container) || this;
+        _this._choices = [];
+        _this.size = Size.Medium;
+        return _this;
     }
     MultichoiceInput.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -756,8 +768,9 @@ var MultichoiceInput = (function (_super) {
 var DateInput = (function (_super) {
     __extends(DateInput, _super);
     function DateInput(container) {
-        _super.call(this, container);
-        this.size = Size.Medium;
+        var _this = _super.call(this, container) || this;
+        _this.size = Size.Medium;
+        return _this;
     }
     DateInput.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -800,10 +813,11 @@ var DateInput = (function (_super) {
 var ActionCard = (function (_super) {
     __extends(ActionCard, _super);
     function ActionCard() {
-        _super.apply(this, arguments);
-        this._allowedActionTypes = ["OpenUri", "HttpPOST"];
-        this._inputs = [];
-        this._actions = [];
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._allowedActionTypes = ["OpenUri", "HttpPOST"];
+        _this._inputs = [];
+        _this._actions = [];
+        return _this;
     }
     Object.defineProperty(ActionCard.prototype, "hasUi", {
         get: function () {
@@ -995,10 +1009,11 @@ var ActionButton = (function () {
 var ActionGroup = (function (_super) {
     __extends(ActionGroup, _super);
     function ActionGroup() {
-        _super.apply(this, arguments);
-        this._actionButtons = [];
-        this._actions = [];
-        this._expandedAction = null;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._actionButtons = [];
+        _this._actions = [];
+        _this._expandedAction = null;
+        return _this;
     }
     ActionGroup.prototype.hideActionCardPane = function () {
         this._actionCardContainer.innerHTML = '';
@@ -1104,13 +1119,13 @@ var ActionGroup = (function (_super) {
         appendChild(element, this._actionCardContainer);
         return element;
     };
-    ActionGroup.buttonStyle = ActionButtonStyle.Push;
     return ActionGroup;
 }(CardElement));
+ActionGroup.buttonStyle = ActionButtonStyle.Push;
 var Separator = (function (_super) {
     __extends(Separator, _super);
     function Separator() {
-        _super.apply(this, arguments);
+        return _super !== null && _super.apply(this, arguments) || this;
     }
     Separator.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -1127,12 +1142,13 @@ var Container = (function (_super) {
     __extends(Container, _super);
     function Container(container, forbiddenItemTypes) {
         if (forbiddenItemTypes === void 0) { forbiddenItemTypes = null; }
-        _super.call(this, container);
-        this._items = [];
-        this._textColor = TextColor.Default;
-        this.style = ContainerStyle.Normal;
-        this.startGroup = false;
-        this._forbiddenItemTypes = forbiddenItemTypes;
+        var _this = _super.call(this, container) || this;
+        _this._items = [];
+        _this._textColor = TextColor.Default;
+        _this.style = ContainerStyle.Normal;
+        _this.startGroup = false;
+        _this._forbiddenItemTypes = forbiddenItemTypes;
+        return _this;
     }
     Container.prototype.isAllowedItemType = function (elementType) {
         if (this._forbiddenItemTypes == null) {
@@ -1287,9 +1303,10 @@ var Container = (function (_super) {
 var Column = (function (_super) {
     __extends(Column, _super);
     function Column() {
-        _super.apply(this, arguments);
-        this._useWeight = false;
-        this._weight = 100;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._useWeight = false;
+        _this._weight = 100;
+        return _this;
     }
     Column.prototype.parse = function (json) {
         _super.prototype.parse.call(this, json);
@@ -1319,8 +1336,9 @@ var Column = (function (_super) {
 var ColumnGroup = (function (_super) {
     __extends(ColumnGroup, _super);
     function ColumnGroup() {
-        _super.apply(this, arguments);
-        this._items = [];
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this._items = [];
+        return _this;
     }
     ColumnGroup.prototype.addColumn = function () {
         var column = new Column(this.container, ["ColumnGroup", "ActionGroup"]);
